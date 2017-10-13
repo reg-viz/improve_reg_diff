@@ -112,3 +112,5 @@ include/
 lib/
 .ipynb_checkpoints/
 out.png
+
+node_modules/
