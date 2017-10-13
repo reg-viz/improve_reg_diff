@@ -62,7 +62,7 @@ def marge_rects(input_rects, margin_threshold=15):
                 rects[j] = connected
     return [rects[i] for i in range(len(connected_pairs1)) if len(connected_pairs1[i]) == 0]
 
-def marge_rects_if_same_center(input_rects, centers):
+def marge_rects_if_same_center(input_rects, centers, margin_threshold=15):
     rects = [(r[0], r[1], r[2], r[3]) for r in input_rects]
     connected_pairs1 = [[] for i in range(len(rects))]
     for i in range(len(rects)):
@@ -71,7 +71,7 @@ def marge_rects_if_same_center(input_rects, centers):
             r2 = rects[j]
             if not centers[i][0] == centers[j][0] or not centers[i][1] == centers[j][1]:
                 continue
-            result, connected = intersect(r1, r2)
+            result, connected = intersect(r1, r2, margin_threshold)
             if result:
                 connected_pairs1[i].append(j)
                 rects[i] = connected
