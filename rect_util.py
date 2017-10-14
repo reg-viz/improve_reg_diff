@@ -1,4 +1,8 @@
 import cv2
+import numpy as np
+
+def clone(rects):
+    return [(r[0], r[1], r[2], r[3]) for r in rects]
 
 # extract bounding recangular from keypoint list
 def create_rects_from_points(points):
@@ -27,7 +31,7 @@ def shift_rects(rects, v):
     return [(x1 + v[0], y1 + v[1], x2 + v[0], y2 + v[1]) for x1, y1, x2, y2 in rects]
 
 # detect to intersect 2 recangulars
-def intersect(r1, r2, margin_threshold=15):
+def intersect(r1, r2, margin_threshold=0):
     mx1 = max(r1[0], r2[0])
     mx2 = min(r1[2], r2[2])
     my1 = max(r1[1], r2[1])
@@ -47,7 +51,7 @@ def in_boxes(kp, rects, mt=8):
         result = result and (not in_box)
     return result
 
-def marge_rects(input_rects, margin_threshold=15):
+def marge_rects(input_rects, margin_threshold=0):
     rects = [(r[0], r[1], r[2], r[3]) for r in input_rects]
     connected_pairs1 = [[] for i in range(len(rects))]
     for i in range(len(rects)):
@@ -62,7 +66,7 @@ def marge_rects(input_rects, margin_threshold=15):
                 rects[j] = connected
     return [rects[i] for i in range(len(connected_pairs1)) if len(connected_pairs1[i]) == 0]
 
-def marge_rects_if_same_center(input_rects, centers, margin_threshold=15):
+def marge_rects_if_same_center(input_rects, centers, margin_threshold=0):
     rects = [(r[0], r[1], r[2], r[3]) for r in input_rects]
     connected_pairs1 = [[] for i in range(len(rects))]
     for i in range(len(rects)):
@@ -78,6 +82,24 @@ def marge_rects_if_same_center(input_rects, centers, margin_threshold=15):
                 r1 = connected
                 rects[j] = connected
     return [(rects[i], centers[i]) for i in range(len(connected_pairs1)) if len(connected_pairs1[i]) == 0]
+
+def allclose(img1, r1, img2, r2, dr=2):
+    x1, y1, x2, y2 = (r1[0], r1[1], r2[0], r2[1])
+    w1, h1 = (r1[2] - r1[0], r1[3] - r1[1])
+    w2, h2 = (r2[2] - r2[0], r2[3] - r2[1])
+    if not abs(w1 - w2) <= dr or not abs(h1 - h2) <= dr:
+        # FIXME
+        return (True, None, None)
+    w, h = (min(w1, w2), min(h1, h2))
+    for dx, dy in [(sx, sy) for sx in range(-dr, dr+1) for sy in range(-dr, dr+1)]:
+        imgr1 = img1[y1:y1+h, x1:x1+w]
+        imgr2 = img2[y2+dy:y2+dy+h, x2+dx:x2+dx+w]
+        result = np.allclose(imgr1, imgr2)
+        if result:
+            return (True, imgr1, imgr2)
+    imgr1 = img1[y1:y1+h, x1:x1+w]
+    imgr2 = img2[y2:y2+h, x2:x2+w]
+    return (False, imgr1, imgr2)
 
 def nonzero_rects(input, dx, dy, reverse=False):
     h, w = input.shape
@@ -103,7 +125,17 @@ def nonzero_rects(input, dx, dy, reverse=False):
                 result.append((mx1, my1, mx2, my2))
     return result
 
-def render_rects(in_img, rects, color, w=1, padding=8):
+def expand(rects, target_index, shape):
+    h, w = shape
+    target = rects[target_index]
+    x1, y1, x2, y2 = rects[target_index]
+    ex1 = max([r[2] for r in rects if not r == target and intersect((0, y1, x2, y2), r, 0)[0]] + [1]) - 1
+    ex2 = min([r[0] for r in rects if not r == target and intersect((x1, y1, w, y2), r, 0)[0]] + [w]) - 1
+    ey1 = max([r[3] for r in rects if not r == target and intersect((x1, 0, x2, y2), r, 0)[0]] + [1]) - 1
+    ey2 = min([r[1] for r in rects if not r == target and intersect((x1, y1, x2, h ), r, 0)[0]] + [h]) - 1
+    return (ex1, ey1, ex2, ey2)
+
+def render_rects(in_img, rects, color, w=1, padding=0):
     out_img = in_img
     for rect in rects:
         x1, y1, x2, y2 = rect
